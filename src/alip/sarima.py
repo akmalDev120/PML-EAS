@@ -17,68 +17,94 @@ from sklearn.metrics import (
     mean_squared_error
 )
 
-# ==========================
-# LOAD DATA
-# ==========================
 
-df = pd.read_csv("data/bbri_2tahun.csv")
+def run_sarima():
 
-df = df.iloc[2:].reset_index(drop=True)
+    # ==========================
+    # LOAD DATA
+    # ==========================
 
-df.rename(columns={"Price":"Date"}, inplace=True)
+    df = pd.read_csv("data/bbri_2tahun.csv")
 
-df["Date"] = pd.to_datetime(df["Date"])
-df["Close"] = pd.to_numeric(df["Close"])
+    df = df.iloc[2:].reset_index(drop=True)
 
-df.set_index("Date", inplace=True)
+    df.rename(columns={"Price":"Date"}, inplace=True)
 
-# ==========================
-# TRAIN TEST SPLIT
-# ==========================
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Close"] = pd.to_numeric(df["Close"])
 
-train_size = int(len(df)*0.8)
+    df.set_index("Date", inplace=True)
 
-train = df["Close"][:train_size]
-test = df["Close"][train_size:]
+    # ==========================
+    # TRAIN TEST SPLIT
+    # ==========================
 
-model = SARIMAX(
-    train,
-    order=(1,1,2),
-    seasonal_order=(1,1,1,5)
-)
+    train_size = int(len(df) * 0.8)
 
-model_fit = model.fit()
+    train = df["Close"][:train_size]
+    test = df["Close"][train_size:]
 
-print(model_fit.summary())
+    # ==========================
+    # MODEL SARIMA
+    # ==========================
 
-forecast = model_fit.forecast(
-    steps=len(test)
-)
+    model = SARIMAX(
+        train,
+        order=(1,1,2),
+        seasonal_order=(1,1,1,5)
+    )
 
-mae = mean_absolute_error(
-    test,
-    forecast
-)
+    model_fit = model.fit()
 
-rmse = mean_squared_error(
-    test,
-    forecast
-) ** 0.5
+    forecast = model_fit.forecast(
+        steps=len(test)
+    )
 
-print("MAE :",mae)
-print("RMSE:",rmse)
+    # ==========================
+    # EVALUASI
+    # ==========================
 
-plt.figure(figsize=(12,6))
+    mae = mean_absolute_error(test, forecast)
 
-plt.plot(train.index,train,label="Train")
+    rmse = mean_squared_error(
+        test,
+        forecast
+    ) ** 0.5
 
-plt.plot(test.index,test,label="Actual")
+    # ==========================
+    # VISUALISASI
+    # ==========================
 
-plt.plot(test.index,forecast,label="Forecast")
+    fig, ax = plt.subplots(figsize=(12,6))
 
-plt.title("Forecast SARIMA")
+    ax.plot(train.index, train, label="Train")
 
-plt.legend()
+    ax.plot(test.index, test, label="Actual")
 
-plt.show()
+    ax.plot(test.index, forecast, label="Forecast")
 
+    ax.set_title("Forecast SARIMA")
+
+    ax.set_xlabel("Tanggal")
+    ax.set_ylabel("Harga Penutupan")
+
+    ax.legend()
+
+    return {
+        "figure": fig,
+        "mae": mae,
+        "rmse": rmse,
+        "summary": model_fit.summary().as_text()
+    }
+
+
+if __name__ == "__main__":
+
+    hasil = run_sarima()
+
+    print(hasil["summary"])
+
+    print("MAE :", hasil["mae"])
+    print("RMSE :", hasil["rmse"])
+
+    hasil["figure"].show()

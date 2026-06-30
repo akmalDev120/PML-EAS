@@ -16,117 +16,113 @@ from sklearn.metrics import (
     mean_squared_error
 )
 
-# ==========================
-# LOAD DATA
-# ==========================
 
-df = pd.read_csv("data/bbri_2tahun.csv")
+def run_arima():
 
-# hapus baris ticker
-df = df.iloc[2:].reset_index(drop=True)
+    # ==========================
+    # LOAD DATA
+    # ==========================
 
-# ubah nama kolom
-df.rename(columns={"Price": "Date"}, inplace=True)
+    df = pd.read_csv("data/bbri_2tahun.csv")
 
-# ubah tipe data
-df["Date"] = pd.to_datetime(df["Date"])
-df["Close"] = pd.to_numeric(df["Close"])
+    df = df.iloc[2:].reset_index(drop=True)
 
-# jadikan index
-df.set_index("Date", inplace=True)
+    df.rename(columns={"Price": "Date"}, inplace=True)
 
-print(df.head())
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Close"] = pd.to_numeric(df["Close"])
 
-# ==========================
-# TRAIN TEST SPLIT
-# ==========================
+    df.set_index("Date", inplace=True)
 
-train_size = int(len(df) * 0.8)
+    # ==========================
+    # TRAIN TEST SPLIT
+    # ==========================
 
-train = df["Close"][:train_size]
-test = df["Close"][train_size:]
+    train_size = int(len(df) * 0.8)
 
-print("Jumlah Train :", len(train))
-print("Jumlah Test  :", len(test))
+    train = df["Close"][:train_size]
+    test = df["Close"][train_size:]
 
-# ==========================
-# MEMBANDINGKAN BEBERAPA MODEL ARIMA
-# ==========================
+    # ==========================
+    # CARI MODEL TERBAIK
+    # ==========================
 
-orders = [
-    (0,1,0),
-    (1,1,0),
-    (0,1,1),
-    (1,1,1),
-    (2,1,1),
-    (1,1,2)
-]
+    orders = [
+        (0,1,0),
+        (1,1,0),
+        (0,1,1),
+        (1,1,1),
+        (2,1,1),
+        (1,1,2)
+    ]
 
-results = []
+    results = []
 
-for order in orders:
-    try:
-        model = ARIMA(train, order=order)
-        model_fit = model.fit()
+    for order in orders:
 
-        results.append({
-            "Model": order,
-            "AIC": model_fit.aic
-        })
+        try:
 
-    except:
-        continue
+            model = ARIMA(train, order=order)
+            model_fit = model.fit()
 
-results = pd.DataFrame(results)
+            results.append({
+                "Model": order,
+                "AIC": model_fit.aic
+            })
 
-print("\nPerbandingan Model ARIMA")
-print(results.sort_values("AIC"))
+        except:
+            continue
 
-# memilih model terbaik
-best_order = results.sort_values("AIC").iloc[0]["Model"]
+    results = pd.DataFrame(results)
 
-print("\nModel Terbaik :", best_order)
+    best_order = results.sort_values("AIC").iloc[0]["Model"]
 
-# ==========================
-# MEMBANGUN MODEL TERBAIK
-# ==========================
+    # ==========================
+    # MODEL TERBAIK
+    # ==========================
 
-model = ARIMA(train, order=best_order)
-model_fit = model.fit()
+    model = ARIMA(train, order=best_order)
+    model_fit = model.fit()
 
-print(model_fit.summary())
+    forecast = model_fit.forecast(steps=len(test))
 
-# ==========================
-# FORECAST
-# ==========================
+    mae = mean_absolute_error(test, forecast)
+    rmse = mean_squared_error(test, forecast) ** 0.5
 
-forecast = model_fit.forecast(steps=len(test))
+    # ==========================
+    # GRAFIK
+    # ==========================
 
-# ==========================
-# EVALUASI
-# ==========================
+    fig, ax = plt.subplots(figsize=(12,6))
 
-mae = mean_absolute_error(test, forecast)
-rmse = mean_squared_error(test, forecast) ** 0.5
+    ax.plot(train.index, train, label="Train")
+    ax.plot(test.index, test, label="Actual")
+    ax.plot(test.index, forecast, label="Forecast")
 
-print("MAE :", mae)
-print("RMSE:", rmse)
+    ax.set_title(f"Forecast ARIMA {best_order}")
+    ax.set_xlabel("Tanggal")
+    ax.set_ylabel("Harga Penutupan")
 
-# ==========================
-# VISUALISASI
-# ==========================
+    ax.legend()
 
-plt.figure(figsize=(12,6))
+    return {
+        "figure": fig,
+        "mae": mae,
+        "rmse": rmse,
+        "best_order": best_order,
+        "aic_table": results.sort_values("AIC"),
+        "summary": str(model_fit.summary())
+    }
 
-plt.plot(train.index, train, label="Train")
-plt.plot(test.index, test, label="Actual")
-plt.plot(test.index, forecast, label="Forecast")
 
-plt.title(f"Forecast ARIMA {best_order}")
+if __name__ == "__main__":
 
-plt.xlabel("Tanggal")
-plt.ylabel("Harga Penutupan")
+    hasil = run_arima()
 
-plt.legend()
+    print("Model Terbaik :", hasil["best_order"])
+    print("MAE :", hasil["mae"])
+    print("RMSE :", hasil["rmse"])
 
-plt.show()
+    print(hasil["aic_table"])
+
+    hasil["figure"].show()

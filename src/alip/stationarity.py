@@ -4,84 +4,71 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
-# membaca data
-df = pd.read_csv("data/bbri_2tahun.csv")
 
-# hapus baris ticker
-df = df.iloc[2:].reset_index(drop=True)
+def run_stationarity():
+    # membaca data
+    df = pd.read_csv("data/bbri_2tahun.csv")
 
-# ubah nama kolom
-df.rename(columns={"Price": "Date"}, inplace=True)
+    # hapus baris ticker
+    df = df.iloc[2:].reset_index(drop=True)
 
-# ubah tipe data
-df["Date"] = pd.to_datetime(df["Date"])
-df["Close"] = pd.to_numeric(df["Close"])
+    # ubah nama kolom
+    df.rename(columns={"Price": "Date"}, inplace=True)
 
-# jadikan tanggal sebagai index
-df.set_index("Date", inplace=True)
+    # ubah tipe data
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["Close"] = pd.to_numeric(df["Close"])
 
-print(df.head())
+    # jadikan tanggal sebagai index
+    df.set_index("Date", inplace=True)
 
-# =========================
-# UJI STASIONERITAS (ADF TEST)
-# =========================
+    # =========================
+    # ADF TEST SEBELUM DIFFERENCING
+    # =========================
+    adf_before = adfuller(df["Close"])
 
-result = adfuller(df["Close"])
+    # =========================
+    # DIFFERENCING
+    # =========================
+    df["Close_diff"] = df["Close"].diff()
+    df = df.dropna()
 
-print("===== HASIL ADF TEST =====")
-print(f"ADF Statistic : {result[0]}")
-print(f"p-value       : {result[1]}")
+    # =========================
+    # ADF TEST SETELAH DIFFERENCING
+    # =========================
+    adf_after = adfuller(df["Close_diff"])
 
-print("\nCritical Values:")
-for key, value in result[4].items():
-    print(f"{key} : {value}")
+    # =========================
+    # GRAFIK ACF
+    # =========================
+    fig_acf, ax1 = plt.subplots(figsize=(10,5))
+    plot_acf(df["Close_diff"], lags=30, ax=ax1)
 
-# Interpretasi
-if result[1] < 0.05:
-    print("\nKesimpulan: Data SUDAH stasioner.")
-else:
-    print("\nKesimpulan: Data BELUM stasioner.")
+    # =========================
+    # GRAFIK PACF
+    # =========================
+    fig_pacf, ax2 = plt.subplots(figsize=(10,5))
+    plot_pacf(df["Close_diff"], lags=30, method="ywm", ax=ax2)
+
+    return {
+        "before": adf_before,
+        "after": adf_after,
+        "acf": fig_acf,
+        "pacf": fig_pacf
+    }
 
 
-# =========================
-# DIFFERENCING
-# =========================
+if __name__ == "__main__":
 
-df["Close_diff"] = df["Close"].diff()
+    hasil = run_stationarity()
 
-df = df.dropna()
+    print("===== ADF TEST =====")
+    print("ADF Statistic :", hasil["before"][0])
+    print("p-value :", hasil["before"][1])
 
-print(df.head())
+    print("\n===== ADF SETELAH DIFFERENCING =====")
+    print("ADF Statistic :", hasil["after"][0])
+    print("p-value :", hasil["after"][1])
 
-# =========================
-# ADF TEST SETELAH DIFFERENCING
-# =========================
-
-result = adfuller(df["Close_diff"])
-
-print("\n===== ADF TEST SETELAH DIFFERENCING =====")
-print(f"ADF Statistic : {result[0]}")
-print(f"p-value       : {result[1]}")
-
-print("\nCritical Values:")
-for key, value in result[4].items():
-    print(f"{key} : {value}")
-
-if result[1] < 0.05:
-    print("\nKesimpulan: Data SUDAH stasioner.")
-else:
-    print("\nKesimpulan: Data BELUM stasioner.")
-
-# =========================
-# PLOT ACF DAN PACF
-# =========================
-
-plt.figure(figsize=(10, 5))
-plot_acf(df["Close_diff"], lags=30)
-plt.title("Autocorrelation Function (ACF)")
-plt.show()
-
-plt.figure(figsize=(10, 5))
-plot_pacf(df["Close_diff"], lags=30, method="ywm")
-plt.title("Partial Autocorrelation Function (PACF)")
-plt.show()
+    hasil["acf"].show()
+    hasil["pacf"].show()
