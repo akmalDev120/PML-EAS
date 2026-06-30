@@ -1,4 +1,6 @@
+venv/
 .venv/
-pycache/
+__pycache__/
 *.pyc
 .ipynb_checkpoints/
+.vscode/
